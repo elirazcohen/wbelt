@@ -30,6 +30,7 @@ Monitors critical Windows services and automatically restarts stopped ones. Incl
 **`cyber_toolkit.ps1`**
 Port scanner and LAN scanner combined. Tests common ports against target domains and sweeps the local subnet for live devices, resolving hostnames and MAC addresses.
 Kept private as it contains network-specific configuration (IPs, hostnames, MAC addresses).
+Ports can be seen as they were posted in the screenshot in output-demo.png
 
 
 ---
