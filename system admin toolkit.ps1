@@ -161,70 +161,56 @@ Write-Host "`nScan complete." -ForegroundColor Cyan
 
 
 function scan-services {
-param ([string[]]$services
-) 
+param ([string[]]$services)
+# Default services if none are passed
 if (-not $services) {
-    $services = "Cryptsvc", "wuauserv", "bits", "WinRM"
+$services = "CryptSvc", "wuauserv", "bits", "WinRM"
 }
 $log = "$PSScriptRoot\service_log.txt"
-
 $cryptsvclogs = "$PSScriptRoot\Cryptsvc_log.txt"
-# looping through services for efficiency
 foreach ($svc in $services) {
 $service = Get-Service -Name $svc -ErrorAction SilentlyContinue
-# conditional statement in case a service is not found
+# Service not found
 if ($null -eq $service) {
-write-host "$svc not found."
-# logging with timestamps to know at what time the run was made
-$timestamp = get-date -format "yyyy-MM-dd HH:mm:ss"
+$timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
 $LogEntry = "[$timestamp] | $svc | Not found"
-Add-Content -path $cryptsvclogs -Value "$LogEntry`n"
-continue 
-}
-
-#SPECIAL HANDLING FOR Cryptsvc
-if ($svc -eq "CryptSvc") {
-if ($service.Status -ne "Running") {
-# writing a warning in case CryptSvc is stopped and manual intervention is required
-write-host "WARNING: CryptSvc is stopped. Manual intervention recommended."
-# logging to the special file i made for CryptSvc
+Write-Host "$svc not found." -ForegroundColor Yellow
 Add-Content -Path $cryptsvclogs -Value "$LogEntry`n"
-# the else statement is if CryptSvc is running
-} else {
-Write-Host "[$timestamp] $svc is Running."
-# logging to the file i assigned for CryptSvc
-
-Add-Content -Path $cryptsvclogs -value "$LogEntry`n"
-}
-# continuing the script and stopping the handling for CryptSvc
-
 continue
-
-
-} 
-#Normal services (auto restart)
-if ($service.Status -ne "Running") {
-# error handling in case restart fails (try is to restart the rest of the services)
-try {
-Restart-Service $svc -force
-Write-Output "$svc restarted"
-# logging with timestamp to services_log.txt
-$timestamp = Get-Date -format "yyyy-MM-dd HH:mm:ss"
-$LogEntry = "[$timestamp] | $svc | $($service.Status) | restarted"
-Add-Content -Path $log -value "$LogEntry`n"
-} catch {
-Write-Output "FAILED TO RESTART SERVICE"
-# logging failure to services_log.txt with timestamp
-Add-Content -Path $log -value "$LogEntry`n"
 }
-# else statement in case the service is already running and restart isnt needed
-} else { 
-Write-Host "$svc is running"
-# logging to file services_log.txt with timestamp
+# SPECIAL HANDLING FOR CryptSvc
+if ($svc -eq "CryptSvc") {
+$timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
+$LogEntry = "[$timestamp] | $svc | $($service.Status)"
+if ($service.Status -ne "Running") {
+Write-Host "WARNING: CryptSvc is stopped. Manual intervention recommended." -ForegroundColor Red
+} else {
+Write-Host "CryptSvc is running" -ForegroundColor Green
+}
+Add-Content -Path $cryptsvclogs -Value "$LogEntry`n"
+continue  # Skip normal restart for CryptSvc
+}
+
+# NORMAL SERVICES (auto restart)
+$timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
+$LogEntry = "[$timestamp] | $svc | $($service.Status)"
+if ($service.Status -ne "Running") {
+try {
+Restart-Service $svc -Force
+Write-Host "$svc restarted successfully" -ForegroundColor Cyan
+$LogEntry = "[$timestamp] | $svc | restarted"
+} catch {
+Write-Host "FAILED TO RESTART $svc" -ForegroundColor Red
+$LogEntry = "[$timestamp] | $svc | FAILED to restart"
+}
+} else {
+Write-Host "$svc is running" -ForegroundColor Green
+}
+# Log to main services log
 Add-Content -Path $log -Value "$LogEntry`n"
 }
 }
-}
+
 
 
 function Scan-Events {
@@ -248,6 +234,7 @@ Add-Content -Path $Logfile -Value "[$timestamp] $($item.Name): $($item.Count)"
 Write-Host "FAILED to get event logs" -ForegroundColor Red
 Add-Content -Path $Logfile -value "[$timestamp] FAILED to get event logs" 
 }
+Start-Sleep -Seconds 60
 } 
 
 function invoke-SystemInfo {
@@ -263,4 +250,94 @@ Version = $os.Version
 # Formatting uptime as days and hours for quick readability
 Uptime = "$($uptime.Days)d $($uptime.Hours)h"
 } 
+}
+function Run-NetworkDiagnosis {
+# defining targeted websites to diagnose and the router's IP and the ports
+$log = "$PSScriptRoot/Network-Diagnosis_logs.txt"
+$router = "192.168.1.1"
+$targets = $router, "google.com", "youtube.com", "discord.com"
+
+$ports = 80, 443, 22
+# printing a friendly message to check the DNS
+Write-Host "=== DNS CHECK ==="
+# looping through the targeted websites and router
+foreach ($target in $targets) {
+# error handling in case it fails
+try {
+Resolve-DnsName $target -ErrorAction Stop | Out-Null
+Write-Host "$target DNS OK"
+}
+catch {
+Write-Host "ERROR: DNS failed for $target"
+Write-Error "fix:
+1. Check WiFi/Ethernet is connected
+2. Restart router"
+Add-Content -Path $log -Value "ERROR: DNS failed for $target
+fix:
+1. Check WiFi/Ethernet is connected
+2. Restart router`n"
+}
+}
+# printing a friendly message of the start of the ping checking
+Write-Host "`n=== PING CHECK ==="
+# looping through targeted websites and router
+foreach ($target in $targets) {
+$ping = Test-Connection $target -Count 2 -ErrorAction SilentlyContinue
+
+if ($ping) {
+$avg = ($ping | Measure-Object -Property ResponseTime -Average).Average
+$avg = [math]::Round($avg)
+
+Write-Host "$target average ping: $avg ms"
+# conditional statements are added to see if the condition is true and the ping is slow
+if ($avg -ge 50) {
+Write-Host "WARNING: $target is slow"
+Write-Error "Check router internet light
+Move closer to router/use Ethernet
+Restart router"
+Add-Content -Path $log -Value "WARNING: $target is slow
+1. Check router internet light
+2. Move closer to router/use Ethernet
+3. Restart router"
+}
+}
+else {
+Write-Host "ERROR: $target not reachable"
+}
+}
+# printing a friendly message of the start of the ports check
+Write-Host "`n=== PORT CHECK (ROUTER ONLY) ==="
+# looping through ports
+foreach ($port in $ports) {
+# defining results to know the results of the check
+$result = Test-NetConnection -ComputerName $router -Port $port -WarningAction SilentlyContinue
+# conditional statements are added to know if the results are available
+if ($result.TcpTestSucceeded) {
+Write-Host "Router port $port OPEN"
+}
+else {
+Write-Host "Router port $port CLOSED"
+Write-Error "fix:
+1. Try opening in browser:
+http://192.168.1.10
+https://192.168.1.10
+If it doesn’t open:
+2. make sure you're on the same WiFi network
+restart router
+check correct IP (run ipconfig → Default Gateway)
+If still failing:
+3. router may disable remote/admin access (normal in some setups)"
+Add-Content -Path $log -Value "Router port $port CLOSED
+fix:
+1. Try opening in browser:
+http://192.168.1.10
+https://192.168.1.10
+If it doesn’t open:
+2. make sure you're on the same WiFi network
+restart router
+check correct IP (run ipconfig → Default Gateway)
+If still failing:
+3. router may disable remote/admin access (normal in some setups)"
+}
+}
 }
