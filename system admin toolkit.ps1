@@ -319,8 +319,8 @@ else {
 Write-Host "Router port $port CLOSED"
 Write-Error "fix:
 1. Try opening in browser:
-http://192.168.1.10
-https://192.168.1.10
+http://192.168.1.1
+https://192.168.1.1
 If it doesn’t open:
 2. make sure you're on the same WiFi network
 restart router
@@ -330,8 +330,8 @@ If still failing:
 Add-Content -Path $log -Value "Router port $port CLOSED
 fix:
 1. Try opening in browser:
-http://192.168.1.10
-https://192.168.1.10
+http://192.168.1.1
+https://192.168.1.1
 If it doesn’t open:
 2. make sure you're on the same WiFi network
 restart router
