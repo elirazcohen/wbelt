@@ -32,7 +32,7 @@ Port scanner and LAN scanner combined. Tests common ports against target domains
 Kept private as it contains network-specific configuration (IPs, hostnames, MAC addresses).
 Ports can be seen as they were posted in the screenshot in output-demo.png
 
-**`network_diagnosis_tool.ps1
+**`network_diagnosis_tool.ps1`**
 
 A lightweight PowerShell utility for quick network troubleshooting.
 It checks DNS resolution, latency (ping), and basic router port accessibility to help identify common connectivity issues.
