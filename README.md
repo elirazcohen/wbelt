@@ -54,7 +54,7 @@ Designed for fast, readable output to support everyday network debugging.
 - Log size protection and auto-trimming
 - Color-coded console output
 - Modular functions
-
+- guide menu
 ---
 
 ## About
