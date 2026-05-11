@@ -341,3 +341,16 @@ If still failing:
 }
 }
 }
+
+
+
+
+
+
+# to run the system health check function type: Invoke-SystemHealth
+# to run the network diagnosis script type: Run-NetworkDiagnosis
+# to run the system info script type: invoke-SystemInfo
+# to run the event logs script type: scan-events
+# to run the service restarter script type: scan-services
+# to run the port scan script type: Invoke-Portscan
+# to run the LAN scan script type: invoke-LANscan
